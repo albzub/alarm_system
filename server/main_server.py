@@ -1,5 +1,5 @@
 import socket, threading, json, time
-from db import init_db, get_alarm_logs
+from db import init_db, get_alarm_logs, check_user_credentials, add_user
 from sensor_listener import start_listener
 
 clients = []
@@ -42,11 +42,25 @@ def client_handler(conn, addr):
             msg = json.loads(data.decode())
             cmd = msg.get("command")
 
-            if cmd == "GET_LOGS":
+            # ✅ 회원가입 처리
+            if cmd == "REGISTER":
+                user, pw = msg.get("username"), msg.get("password")
+                success = add_user(user, pw)
+                response = {"type": "REGISTER_RESULT", "success": success}
+                conn.send(json.dumps(response).encode())
+
+            # ✅ 로그인 처리
+            elif cmd == "LOGIN":
+                user, pw = msg.get("username"), msg.get("password")
+                success = check_user_credentials(user, pw)
+                response = {"type": "LOGIN_RESULT", "success": success}
+                conn.send(json.dumps(response).encode())
+
+            # ✅ 로그 요청
+            elif cmd == "GET_LOGS":
                 logs = get_alarm_logs()
-                conn.send((json.dumps({"type": "LOGS", "data": logs}) + "\n").encode())
-            else:
-                print(f"[Client {addr}] Unknown command:", msg)
+                conn.send(json.dumps({"type": "LOGS", "data": logs}).encode())
+
     except Exception as e:
         print(f"[!] Client error {addr}: {e}")
     finally:

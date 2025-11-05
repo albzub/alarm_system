@@ -27,17 +27,17 @@ class AlarmApp(ctk.CTk):
             self.pages["login"] = LoginPage(self)
         self.pages["login"].pack(fill="both", expand=True)
 
-    def show_dashboard(self, username):
+    def show_dashboard(self, username, server):
         self.clear()
         self.current_user = username
         if "dashboard" not in self.pages:
-            self.pages["dashboard"] = DashboardPage(self, username)
+            self.pages["dashboard"] = DashboardPage(self, username, server)
         self.pages["dashboard"].pack(fill="both", expand=True)
 
-    def show_alarm_list(self):
+    def show_alarm_list(self, username, server):
         self.clear()
         if "alarm_list" not in self.pages:
-            self.pages["alarm_list"] = AlarmListPage(self, self.current_user)
+            self.pages["alarm_list"] = AlarmListPage(self, username, server)
         self.pages["alarm_list"].pack(fill="both", expand=True)
 
 if __name__ == "__main__":

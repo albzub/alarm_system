@@ -5,11 +5,12 @@ HOST = "172.16.1.160"
 PORT = 5000
 
 class AlarmListPage(ctk.CTkFrame):
-    def __init__(self, master, username):
+    def __init__(self, master, username, server):
         super().__init__(master)
         self.master = master
         self.username = username
-
+        self.server = server
+        
         ctk.CTkLabel(self, text="📋 Alarm History", font=("Arial", 18, "bold")).pack(pady=10)
         self.table = ctk.CTkTextbox(self, width=700, height=400)
         self.table.pack(pady=10)
@@ -22,7 +23,7 @@ class AlarmListPage(ctk.CTkFrame):
         self.load_data()
 
     def go_back(self):
-        self.master.show_dashboard(self.username)
+        self.master.show_dashboard(self.username, self.server)
 
     def load_data(self):
         """서버로부터 로그를 요청하고 테이블에 표시"""
