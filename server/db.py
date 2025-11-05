@@ -1,4 +1,4 @@
-import sqlite3, bcrypt
+import sqlite3, bcrypt, re
 
 def get_conn():
     return sqlite3.connect("server_data.db")
@@ -18,8 +18,9 @@ def init_db():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
-        password_hash TEXT
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        is_active INTEGER DEFAULT 1
     )
     """)
     conn.commit()
@@ -54,22 +55,43 @@ def get_alarm_logs():
         "status": r[3]
     } for r in rows]
 
+def valid_password(password: str):
+    if not password or len(password) < 6:
+        return False, "암호는 최소 6자이상이여야 합니다."
+    return True, ""
+
+# ----------------------------
+# ✅ Add user
+# ----------------------------
 def add_user(username, password):
-    """신규 사용자 등록 (bcrypt 해시)"""
-    conn = get_conn()
-    cur = conn.cursor()
-    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    if not username or not username.strip():
+        return False, "사용자이름을 입력하십시오."
+
+    ok, msg = valid_password(password)
+    if not ok:
+        return False, msg
+
     try:
+        conn = get_conn()
+        cur = conn.cursor()
+        hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         cur.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, hashed))
         conn.commit()
-        return True
+        return True, "✅ 사용자등록이 성공하였습니다."
     except sqlite3.IntegrityError:
-        return False  # username already exists
+        return False, "❌ 이미 존재하는 사용자입니다."
+    except Exception as e:
+        return False, f"❌ 자료기지 오유: {e}"
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except:
+            pass
 
+# ----------------------------
+# ✅ Check Log in
+# ----------------------------
 def check_user_credentials(username, password):
-    """bcrypt 해시 대조"""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("SELECT password_hash FROM users WHERE username=?", (username,))
@@ -77,7 +99,73 @@ def check_user_credentials(username, password):
     conn.close()
 
     if not row:
-        return False
+        return False, "❌ Cannot find user."
 
     stored_hash = row[0]
-    return bcrypt.checkpw(password.encode(), stored_hash.encode())
+    if bcrypt.checkpw(password.encode(), stored_hash.encode()):
+        return True, "✅ Login successfully"
+    return False, "❌ Incorrect Password."
+
+def activate_user(username):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET is_active=1 WHERE username=?", (username,))
+    conn.commit()
+    updated = cur.rowcount > 0
+    conn.close()
+    return updated
+
+def deactivate_user(username):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET is_active=0 WHERE username=?", (username,))
+    conn.commit()
+    updated = cur.rowcount > 0
+    conn.close()
+    return updated
+
+def change_user_password(username: str, old_pw: str, new_pw: str):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT password_hash FROM users WHERE username=?", (username,))
+    row = cur.fetchone()
+
+    if not row:
+        conn.close()
+        return False, "Cannot find user."
+
+    stored_hash = row[0]
+    if not bcrypt.checkpw(old_pw.encode(), stored_hash.encode()):
+        conn.close()
+        return False, "Incorrect old password."
+
+    ok, msg = valid_password(new_pw)
+    if not ok:
+        conn.close()
+        return False, msg
+
+    new_hash = bcrypt.hashpw(new_pw.encode(), bcrypt.gensalt()).decode()
+    cur.execute("UPDATE users SET password_hash=? WHERE username=?", (new_hash, username))
+    conn.commit()
+    conn.close()
+    return True, "Password changed successfully."
+
+def get_active_users():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT username FROM users WHERE is_active=1")
+    rows = cur.fetchall()
+    conn.close()
+    return [r[0] for r in rows]
+
+def deactivate_account(username: str):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET is_active=0 WHERE username=?", (username,))
+    conn.commit()
+    updated = cur.rowcount > 0
+    conn.close()
+    if updated:
+        return True, "사용자정보가 비활성화되였습니다."
+    else:
+        return False, "사용자가 존재하지 않습니다."

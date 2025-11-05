@@ -5,7 +5,6 @@ from db import log_alarm
 DEVICE_IDS = ["A1", "A2", "A3", "A4", "A5", "A6"]
 
 def handle_sensor_connection(conn, addr, broadcast_callback):
-    """실제 장비로부터 TCP 신호 수신"""
     try:
         data = conn.recv(1024)
         if not data:
@@ -43,7 +42,6 @@ def tcp_listener(broadcast_callback):
         ).start()
 
 def simulate_sensors(broadcast_callback):
-    """시뮬레이터 (테스트용)"""
     while True:
         time.sleep(random.randint(8, 15))
         dev = random.choice(DEVICE_IDS)
